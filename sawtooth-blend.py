@@ -4,13 +4,13 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as splinalg
 
 def f(x, s=0):
-    return (2 * x + s * sin(4 * pi * x)) % 1
+    return (2 * x + s * sin(2 * pi * x)) % 1
 
 def dfdx(x, s=0):
-    return 2 + s * 4 * pi * cos(4 * pi * x)
+    return 2 + s * 2 * pi * cos(2 * pi * x)
 
 def dfds(x, s=0):
-    return sin(4 * pi * x)
+    return sin(2 * pi * x)
 
 def J(x):
     return cos(2 * pi * x)
@@ -33,7 +33,8 @@ for s in s_arr:
     Js_arr.append(mean(J_s))
 
 Js_arr = array(Js_arr)
-plot(s_arr, Js_arr, 'o')
+figure(0)
+meanLegend = plot(s_arr, Js_arr, 'o')[0]
 
 # ------------------- LSS -------------------
 Js_lss_arr = []
@@ -44,7 +45,7 @@ for s in s_arr:
     for i in range(10):
         x = f(x, s)
     x_hist = []
-    for i in range(100):
+    for i in range(1000):
         x = f(x, s)
         x_hist.append(x.copy())
     x_hist = array(x_hist)
@@ -66,7 +67,7 @@ for s in s_arr:
         dx = x_hist[1:,i] - x_hist[1:,i:i+1]
         dx = abs((dx + 0.5) % 1 - 0.5)
 
-        EPS = 1E-1
+        EPS = 3E-2
         n_reconnect = (dx < EPS).sum(0)
         i_reconnect, j_reconnect = (dx < EPS).nonzero()
 
@@ -76,23 +77,37 @@ for s in s_arr:
         B += sp.spdiags(ones(N), 1, N-1, N)
         b = np.dot(dx < EPS, fs[:-1,i]) / n_reconnect
 
+        B = B.tocsr()
         S = B * B.T
         w = splinalg.spsolve(S, b)
         vr.append(B.T * w)
     vr = transpose(vr)
     Js_lssr_arr.append((dJdx(x_hist) * vr).mean())
 
-    # figure()
-    # plot(x_hist, v, '.k')
-    # plot(x_hist, vr, '.r')
-    # plot(x_hist, fs, '.g')
+    figure(1)
+    clf()
+    vLegend = plot(x_hist, v, '.b')[0]
+    vrLegend = plot(x_hist, vr, '.r')[0]
+    xlabel('x')
+    ylabel('v')
+    legend([vLegend, vrLegend], ['lss', 'lssr'])
+    grid()
+    savefig('sawtooth_plus_s_sin2pix_s_{0:5.3f}.png'.format(s))
     # stop
 
 Js_lss_arr = array(Js_lss_arr)
 Js_lssr_arr = array(Js_lssr_arr)
 
 ds_vis = 0.005
-plot([s_arr - ds_vis, s_arr + ds_vis],
-     [Js_arr - Js_lss_arr * ds_vis, Js_arr + Js_lss_arr * ds_vis], '-k')
-plot([s_arr - ds_vis, s_arr + ds_vis],
-     [Js_arr - Js_lssr_arr * ds_vis, Js_arr + Js_lssr_arr * ds_vis], '-r')
+figure(0)
+lssLegend = plot([s_arr - ds_vis, s_arr + ds_vis],
+     [Js_arr - Js_lss_arr * ds_vis, Js_arr + Js_lss_arr * ds_vis], '-k')[0]
+lssrLegend = plot([s_arr - ds_vis, s_arr + ds_vis],
+     [Js_arr - Js_lssr_arr * ds_vis, Js_arr + Js_lssr_arr * ds_vis], '-r')[0]
+xlabel('s')
+ylabel(r'$E(\cos(2\pi x))$')
+legend([meanLegend, lssLegend, lssrLegend],
+       ['mean', 'lss', 'lssr'], loc='upper left')
+grid()
+savefig('sawtooth_plus_s_sin2pix')
+show()
